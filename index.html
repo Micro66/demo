@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单网页</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .button {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #5a6fd8;
+        }
+        .time {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>欢迎来到简单网页</h1>
+        <p>这是一个简单的网页示例，包含基本的HTML结构和CSS样式。</p>
+        <p>点击下面的按钮可以显示当前时间：</p>
+        <button class="button" onclick="showTime()">显示时间</button>
+        <div class="time" id="timeDisplay"></div>
+    </div>
+
+    <script>
+        function showTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('zh-CN');
+            document.getElementById('timeDisplay').textContent = '当前时间：' + timeString;
+        }
+    </script>
+</body>
+</html>
