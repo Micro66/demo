@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雷电三 - Thunder III</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .game-container {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .game-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .player-stats {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            min-width: 150px;
+        }
+
+        .health-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #FF4444, #FF6666);
+            transition: width 0.3s ease;
+        }
+
+        #gameCanvas {
+            border: 3px solid #FFD700;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #001122 0%, #003366 100%);
+            display: block;
+            margin: 0 auto;
+        }
+
+        .controls {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #ccc;
+        }
+
+        .join-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .join-screen h2 {
+            margin-bottom: 20px;
+            color: #FFD700;
+        }
+
+        .join-screen input {
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 5px;
+            width: 200px;
+            font-size: 16px;
+        }
+
+        .join-screen button {
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            border: none;
+            border-radius: 5px;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+
+        .join-screen button:hover {
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1 class="game-title">雷电三</h1>
+            <div class="game-info">
+                <div class="player-stats">
+                    <div>生命值: <span id="health">100</span></div>
+                    <div class="health-bar">
+                        <div class="health-fill" id="healthBar" style="width: 100%"></div>
+                    </div>
+                </div>
+                <div class="player-stats">
+                    <div>得分: <span id="score">0</span></div>
+                    <div>在线玩家: <span id="playerCount">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div class="controls">
+            <p>使用 WASD 或方向键移动 | 空格键射击</p>
+        </div>
+    </div>
+
+    <div class="join-screen" id="joinScreen">
+        <h2>加入雷电三对战</h2>
+        <input type="text" id="playerName" placeholder="输入你的名字" maxlength="20">
+        <br>
+        <button onclick="joinGame()">开始游戏</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const socket = io();
+
+        let players = {};
+        let bullets = {};
+        let myPlayerId = null;
+        let keys = {};
+
+        class Player {
+            constructor(data) {
+                this.id = data.id;
+                this.x = data.x;
+                this.y = data.y;
+                this.width = data.width;
+                this.height = data.height;
+                this.color = data.color;
+                this.health = data.health;
+                this.score = data.score;
+                this.direction = data.direction;
+                this.name = data.name;
+            }
+
+            draw() {
+                ctx.save();
+
+                if (this.health <= 0) {
+                    ctx.globalAlpha = 0.3;
+                }
+
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.name, this.x + this.width/2, this.y - 5);
+
+                ctx.restore();
+            }
+        }
+
+        class Bullet {
+            constructor(data) {
+                this.id = data.id;
+                this.x = data.x;
+                this.y = data.y;
+                this.width = data.width;
+                this.height = data.height;
+                this.direction = data.direction;
+                this.playerId = data.playerId;
+            }
+
+            draw() {
+                ctx.fillStyle = '#FFD700';
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function joinGame() {
+            const playerName = document.getElementById('playerName').value.trim();
+            if (playerName) {
+                socket.emit('joinGame', playerName);
+                document.getElementById('joinScreen').classList.add('hidden');
+            }
+        }
+
+        socket.on('playerJoined', (data) => {
+            players[data.id] = new Player(data.player);
+            if (!myPlayerId) {
+                myPlayerId = data.id;
+            }
+            updatePlayerCount();
+        });
+
+        socket.on('gameState', (data) => {
+            players = {};
+            bullets = {};
+
+            for (let id in data.players) {
+                players[id] = new Player(data.players[id]);
+                if (!myPlayerId) {
+                    myPlayerId = id;
+                }
+            }
+
+            for (let id in data.bullets) {
+                bullets[id] = new Bullet(data.bullets[id]);
+            }
+
+            updatePlayerCount();
+        });
+
+        socket.on('playerMoved', (data) => {
+            if (players[data.id]) {
+                players[data.id].x = data.x;
+                players[data.id].y = data.y;
+                players[data.id].direction = data.direction;
+            }
+        });
+
+        socket.on('bulletShot', (data) => {
+            bullets[data.id] = new Bullet(data);
+        });
+
+        socket.on('bulletRemoved', (bulletId) => {
+            delete bullets[bulletId];
+        });
+
+        socket.on('playerHit', (data) => {
+            if (players[data.playerId]) {
+                players[data.playerId].health = data.health;
+                if (data.playerId === myPlayerId) {
+                    updateHealthBar(data.health);
+                }
+            }
+        });
+
+        socket.on('playerDied', (data) => {
+            if (players[data.killerId]) {
+                players[data.killerId].score = data.score;
+                if (data.killerId === myPlayerId) {
+                    document.getElementById('score').textContent = data.score;
+                }
+            }
+        });
+
+        socket.on('playerRespawned', (data) => {
+            if (players[data.id]) {
+                players[data.id].x = data.x;
+                players[data.id].y = data.y;
+                players[data.id].health = data.health;
+                if (data.id === myPlayerId) {
+                    updateHealthBar(data.health);
+                }
+            }
+        });
+
+        socket.on('playerLeft', (playerId) => {
+            delete players[playerId];
+            updatePlayerCount();
+        });
+
+        function updateHealthBar(health) {
+            document.getElementById('health').textContent = health;
+            document.getElementById('healthBar').style.width = health + '%';
+        }
+
+        function updatePlayerCount() {
+            document.getElementById('playerCount').textContent = Object.keys(players).length;
+        }
+
+        function handleInput() {
+            if (!myPlayerId || !players[myPlayerId]) return;
+
+            let moved = false;
+            let direction = null;
+
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) {
+                socket.emit('playerMove', 'up');
+                moved = true;
+            }
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) {
+                socket.emit('playerMove', 'down');
+                moved = true;
+            }
+            if (keys['a'] || keys['A'] || keys['ArrowLeft']) {
+                socket.emit('playerMove', 'left');
+                moved = true;
+            }
+            if (keys['d'] || keys['D'] || keys['ArrowRight']) {
+                socket.emit('playerMove', 'right');
+                moved = true;
+            }
+
+            if (keys[' ']) {
+                socket.emit('playerShoot');
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let id in players) {
+                players[id].draw();
+            }
+
+            for (let id in bullets) {
+                bullets[id].draw();
+            }
+
+            handleInput();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            e.preventDefault();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+            e.preventDefault();
+        });
+
+        document.getElementById('playerName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                joinGame();
+            }
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>
