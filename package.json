@@ -1,0 +1,31 @@
+{
+  "name": "syntax-tree-query",
+  "version": "1.0.0",
+  "description": "A JavaScript script to query syntax trees of code files",
+  "main": "syntax-tree-query.js",
+  "bin": {
+    "syntax-tree-query": "./syntax-tree-query.js"
+  },
+  "scripts": {
+    "start": "node syntax-tree-query.js",
+    "install-deps": "npm install"
+  },
+  "keywords": [
+    "ast",
+    "syntax-tree",
+    "parser",
+    "javascript",
+    "typescript",
+    "code-analysis"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/parser": "^7.23.0",
+    "@babel/traverse": "^7.23.0",
+    "@babel/generator": "^7.23.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
