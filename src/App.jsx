@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { Download, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { Download, Trash2, Edit2, RefreshCw, Camera } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 const GEMINI_API_KEY = 'AIzaSyDxhfiN0Ftu_CqRtk4b5uhdBGQRK8AZzWY';
@@ -162,12 +162,12 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-pink-50 font-handwritten overflow-hidden">
       {/* Title */}
-      <div className="fixed top-8 left-0 right-0 text-center z-10">
-        <h1 className="text-6xl font-bold text-amber-900">Bao Retro Camera</h1>
+      <div className="fixed top-4 md:top-8 left-0 right-0 text-center z-10 px-4">
+        <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-amber-900">Bao Retro Camera</h1>
       </div>
 
       {/* Instructions */}
-      <div className="fixed bottom-8 right-8 bg-white/80 backdrop-blur-sm p-4 rounded-lg shadow-lg max-w-xs z-10">
+      <div className="hidden md:block fixed bottom-8 right-8 bg-white/80 backdrop-blur-sm p-4 rounded-lg shadow-lg max-w-xs z-10">
         <h3 className="text-2xl font-bold text-amber-900 mb-2">How to Use</h3>
         <ul className="text-lg text-amber-800 space-y-1">
           <li>• Click the button to take a photo</li>
@@ -176,6 +176,16 @@ function App() {
           <li>• Hover for more options</li>
         </ul>
       </div>
+
+      {/* Mobile Floating Capture Button */}
+      <button
+        onClick={capturePhoto}
+        disabled={isEjecting}
+        className="md:hidden fixed top-20 right-4 z-30 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-gray-400 text-white p-4 rounded-full shadow-lg transition-colors"
+        aria-label="Take Photo"
+      >
+        <Camera size={24} />
+      </button>
 
       {/* Photo Wall - Draggable Photos */}
       {photos.filter(p => p.onWall).map(photo => (
@@ -191,12 +201,13 @@ function App() {
 
       {/* Camera Container */}
       <div
-        className="fixed"
+        className="fixed left-1/2 -translate-x-1/2 md:left-16 md:translate-x-0"
         style={{
-          bottom: '64px',
-          left: '64px',
-          width: '450px',
-          height: '450px',
+          bottom: 'clamp(16px, 5vh, 64px)',
+          width: 'min(90vw, 450px)',
+          height: 'min(90vw, 450px)',
+          maxWidth: '450px',
+          maxHeight: '450px',
           zIndex: 20
         }}
       >
@@ -284,6 +295,7 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
   const [isTextHovered, setIsTextHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(photo.caption);
+  const [isTouching, setIsTouching] = useState(false);
   const inputRef = useRef(null);
 
   const handleDragEnd = (event, info) => {
@@ -352,20 +364,22 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
       drag
       dragMomentum={false}
       onDragEnd={handleDragEnd}
-      className="absolute cursor-move select-none"
+      className="absolute cursor-move select-none touch-none"
       style={{
         x: photo.position.x,
         y: photo.position.y,
-        width: isInCamera ? '100%' : '300px',
+        width: isInCamera ? '100%' : 'min(85vw, 300px)',
       }}
       initial={isInCamera ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={() => setIsTouching(true)}
+      onTouchEnd={() => setTimeout(() => setIsTouching(false), 200)}
     >
       {/* Polaroid Card */}
-      <div className="bg-white p-4 shadow-2xl" style={{ aspectRatio: '3/4' }}>
+      <div className="bg-white p-3 md:p-4 shadow-2xl" style={{ aspectRatio: '3/4' }}>
         {/* Photo Area */}
         <div
           className="relative bg-gray-200 mb-3 overflow-hidden"
@@ -386,8 +400,8 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
         </div>
 
         {/* Text Area */}
-        <div className="space-y-2">
-          <div className="text-xl text-gray-700 font-bold">{photo.date}</div>
+        <div className="space-y-1 md:space-y-2">
+          <div className="text-base md:text-xl text-gray-700 font-bold">{photo.date}</div>
 
           <div
             className="relative"
@@ -402,11 +416,11 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
                 onChange={(e) => setEditText(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onBlur={handleSave}
-                className="w-full text-xl text-gray-800 bg-gray-50 border-2 border-amber-300 rounded p-2 font-handwritten resize-none"
+                className="w-full text-base md:text-xl text-gray-800 bg-gray-50 border-2 border-amber-300 rounded p-2 font-handwritten resize-none"
                 rows={3}
               />
             ) : (
-              <div className="text-xl text-gray-800 min-h-[60px]">
+              <div className="text-base md:text-xl text-gray-800 min-h-[50px] md:min-h-[60px]">
                 {photo.isGenerating ? (
                   <span className="italic text-gray-500">Generating caption...</span>
                 ) : (
@@ -416,21 +430,21 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
             )}
 
             {/* Edit Icons */}
-            {isTextHovered && !isEditing && !photo.isGenerating && (
+            {(isTextHovered || isTouching) && !isEditing && !photo.isGenerating && (
               <div className="absolute top-0 right-0 flex gap-2 bg-white/90 p-1 rounded shadow-lg">
                 <button
                   onClick={handleEdit}
-                  className="p-1 hover:bg-amber-100 rounded"
+                  className="p-1 hover:bg-amber-100 rounded active:bg-amber-200"
                   aria-label="Edit caption"
                 >
-                  <Edit2 size={18} className="text-amber-700" />
+                  <Edit2 size={16} className="text-amber-700 md:w-[18px] md:h-[18px]" />
                 </button>
                 <button
                   onClick={handleRefresh}
-                  className="p-1 hover:bg-amber-100 rounded"
+                  className="p-1 hover:bg-amber-100 rounded active:bg-amber-200"
                   aria-label="Regenerate caption"
                 >
-                  <RefreshCw size={18} className="text-amber-700" />
+                  <RefreshCw size={16} className="text-amber-700 md:w-[18px] md:h-[18px]" />
                 </button>
               </div>
             )}
@@ -439,21 +453,21 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
       </div>
 
       {/* Hover Toolbar */}
-      {isHovered && !photo.isDeveloping && photo.onWall && (
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex gap-2 bg-white/95 p-2 rounded-lg shadow-lg">
+      {(isHovered || isTouching) && !photo.isDeveloping && photo.onWall && (
+        <div className="absolute -top-10 md:-top-12 left-1/2 -translate-x-1/2 flex gap-2 bg-white/95 p-1.5 md:p-2 rounded-lg shadow-lg">
           <button
             onClick={() => downloadPhoto(photo.id)}
-            className="p-2 hover:bg-amber-100 rounded transition-colors"
+            className="p-1.5 md:p-2 hover:bg-amber-100 active:bg-amber-200 rounded transition-colors"
             aria-label="Download photo"
           >
-            <Download size={20} className="text-amber-700" />
+            <Download size={18} className="text-amber-700 md:w-5 md:h-5" />
           </button>
           <button
             onClick={() => deletePhoto(photo.id)}
-            className="p-2 hover:bg-red-100 rounded transition-colors"
+            className="p-1.5 md:p-2 hover:bg-red-100 active:bg-red-200 rounded transition-colors"
             aria-label="Delete photo"
           >
-            <Trash2 size={20} className="text-red-600" />
+            <Trash2 size={18} className="text-red-600 md:w-5 md:h-5" />
           </button>
         </div>
       )}
