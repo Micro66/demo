@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { Download, Trash2, Edit2, RefreshCw, Camera } from 'lucide-react';
+import { Download, Trash2, Edit2, RefreshCw, Camera, Gamepad2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import TetrisGame from './TetrisGame';
 
 const GEMINI_API_KEY = 'AIzaSyDxhfiN0Ftu_CqRtk4b5uhdBGQRK8AZzWY';
 
 function App() {
+  const [currentView, setCurrentView] = useState('camera'); // 'camera' or 'tetris'
   const [photos, setPhotos] = useState([]);
   const [stream, setStream] = useState(null);
   const [isEjecting, setIsEjecting] = useState(false);
@@ -161,131 +163,166 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-pink-50 font-handwritten overflow-hidden">
-      {/* Title */}
-      <div className="fixed top-4 md:top-8 left-0 right-0 text-center z-10 px-4">
-        <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-amber-900">Bao Retro Camera</h1>
+      {/* Navigation */}
+      <div className="fixed top-4 md:top-8 left-0 right-0 text-center z-50 px-4">
+        <div className="flex justify-center items-center gap-4 mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-amber-900">
+            {currentView === 'camera' ? 'Bao Retro Camera' : '俄罗斯方块'}
+          </h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentView('camera')}
+              className={`p-3 rounded-full transition-all ${
+                currentView === 'camera'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-white/80 text-amber-600 hover:bg-amber-100'
+              }`}
+              aria-label="Camera Mode"
+            >
+              <Camera size={24} />
+            </button>
+            <button
+              onClick={() => setCurrentView('tetris')}
+              className={`p-3 rounded-full transition-all ${
+                currentView === 'tetris'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white/80 text-purple-600 hover:bg-purple-100'
+              }`}
+              aria-label="Tetris Game"
+            >
+              <Gamepad2 size={24} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Instructions */}
-      <div className="hidden md:block fixed bottom-8 right-8 bg-white/80 backdrop-blur-sm p-4 rounded-lg shadow-lg max-w-xs z-10">
-        <h3 className="text-2xl font-bold text-amber-900 mb-2">How to Use</h3>
-        <ul className="text-lg text-amber-800 space-y-1">
-          <li>• Click the button to take a photo</li>
-          <li>• Drag photos to the wall</li>
-          <li>• Double-click text to edit</li>
-          <li>• Hover for more options</li>
-        </ul>
-      </div>
+      {/* Conditional Rendering */}
+      {currentView === 'camera' ? (
+        <>
+          {/* Instructions */}
+          <div className="hidden md:block fixed bottom-8 right-8 bg-white/80 backdrop-blur-sm p-4 rounded-lg shadow-lg max-w-xs z-10">
+            <h3 className="text-2xl font-bold text-amber-900 mb-2">How to Use</h3>
+            <ul className="text-lg text-amber-800 space-y-1">
+              <li>• Click button to take a photo</li>
+              <li>• Drag photos to the wall</li>
+              <li>• Double-click text to edit</li>
+              <li>• Hover for more options</li>
+            </ul>
+          </div>
 
-      {/* Mobile Floating Capture Button */}
-      <button
-        onClick={capturePhoto}
-        disabled={isEjecting}
-        className="md:hidden fixed top-20 right-4 z-30 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-gray-400 text-white p-4 rounded-full shadow-lg transition-colors"
-        aria-label="Take Photo"
-      >
-        <Camera size={24} />
-      </button>
-
-      {/* Photo Wall - Draggable Photos */}
-      {photos.filter(p => p.onWall).map(photo => (
-        <PolaroidPhoto
-          key={photo.id}
-          photo={photo}
-          setPhotos={setPhotos}
-          deletePhoto={deletePhoto}
-          downloadPhoto={downloadPhoto}
-          generateCaption={generateCaption}
-        />
-      ))}
-
-      {/* Camera Container */}
-      <div
-        className="fixed left-1/2 -translate-x-1/2 md:left-16 md:translate-x-0"
-        style={{
-          bottom: 'clamp(16px, 5vh, 64px)',
-          width: 'min(90vw, 450px)',
-          height: 'min(90vw, 450px)',
-          maxWidth: '450px',
-          maxHeight: '450px',
-          zIndex: 20
-        }}
-      >
-        {/* Camera Background Image */}
-        <img
-          src="https://s.baoyu.io/images/retro-camera.webp"
-          alt="Retro Camera"
-          className="absolute w-full h-full object-contain"
-          style={{ left: 0, bottom: 0 }}
-        />
-
-        {/* Video Viewfinder */}
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="absolute object-cover"
-          style={{
-            bottom: '32%',
-            left: '62%',
-            transform: 'translateX(-50%)',
-            width: '27%',
-            height: '27%',
-            borderRadius: '50%',
-            zIndex: 30
-          }}
-        />
-
-        {/* Shutter Button */}
-        <button
-          onClick={capturePhoto}
-          className="absolute bg-transparent border-none outline-none"
-          style={{
-            bottom: '40%',
-            left: '18%',
-            width: '11%',
-            height: '11%',
-            cursor: 'pointer',
-            zIndex: 30
-          }}
-          aria-label="Take Photo"
-        />
-
-        {/* Photo Ejection Slot */}
-        {photos.filter(p => !p.onWall).map(photo => (
-          <motion.div
-            key={photo.id}
-            className="absolute"
-            style={{
-              transform: 'translateX(-50%)',
-              top: 0,
-              left: '50%',
-              width: '35%',
-              height: '100%',
-              zIndex: 10
-            }}
-            initial={{ y: 0 }}
-            animate={{ y: isEjecting ? '-40%' : 0 }}
-            transition={{ duration: 2, ease: 'easeOut' }}
+          {/* Mobile Floating Capture Button */}
+          <button
+            onClick={capturePhoto}
+            disabled={isEjecting}
+            className="md:hidden fixed top-20 right-4 z-30 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-gray-400 text-white p-4 rounded-full shadow-lg transition-colors"
+            aria-label="Take Photo"
           >
+            <Camera size={24} />
+          </button>
+
+          {/* Photo Wall - Draggable Photos */}
+          {photos.filter(p => p.onWall).map(photo => (
             <PolaroidPhoto
+              key={photo.id}
               photo={photo}
               setPhotos={setPhotos}
               deletePhoto={deletePhoto}
               downloadPhoto={downloadPhoto}
               generateCaption={generateCaption}
-              isInCamera={true}
             />
-          </motion.div>
-        ))}
-      </div>
+          ))}
 
-      {/* Hidden Canvas for Capture */}
-      <canvas ref={canvasRef} className="hidden" />
+          {/* Camera Container */}
+          <div
+            className="fixed left-1/2 -translate-x-1/2 md:left-16 md:translate-x-0"
+            style={{
+              bottom: 'clamp(16px, 5vh, 64px)',
+              width: 'min(90vw, 450px)',
+              height: 'min(90vw, 450px)',
+              maxWidth: '450px',
+              maxHeight: '450px',
+              zIndex: 20
+            }}
+          >
+            {/* Camera Background Image */}
+            <img
+              src="https://s.baoyu.io/images/retro-camera.webp"
+              alt="Retro Camera"
+              className="absolute w-full h-full object-contain"
+              style={{ left: 0, bottom: 0 }}
+            />
 
-      {/* Shutter Sound */}
-      <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ0MUKzn77BfGgU7ltry0YU2Bx9uyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OU=" />
+            {/* Video Viewfinder */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute object-cover"
+              style={{
+                bottom: '32%',
+                left: '62%',
+                transform: 'translateX(-50%)',
+                width: '27%',
+                height: '27%',
+                borderRadius: '50%',
+                zIndex: 30
+              }}
+            />
+
+            {/* Shutter Button */}
+            <button
+              onClick={capturePhoto}
+              className="absolute bg-transparent border-none outline-none"
+              style={{
+                bottom: '40%',
+                left: '18%',
+                width: '11%',
+                height: '11%',
+                cursor: 'pointer',
+                zIndex: 30
+              }}
+              aria-label="Take Photo"
+            />
+
+            {/* Photo Ejection Slot */}
+            {photos.filter(p => !p.onWall).map(photo => (
+              <motion.div
+                key={photo.id}
+                className="absolute"
+                style={{
+                  transform: 'translateX(-50%)',
+                  top: 0,
+                  left: '50%',
+                  width: '35%',
+                  height: '100%',
+                  zIndex: 10
+                }}
+                initial={{ y: 0 }}
+                animate={{ y: isEjecting ? '-40%' : 0 }}
+                transition={{ duration: 2, ease: 'easeOut' }}
+              >
+                <PolaroidPhoto
+                  photo={photo}
+                  setPhotos={setPhotos}
+                  deletePhoto={deletePhoto}
+                  downloadPhoto={downloadPhoto}
+                  generateCaption={generateCaption}
+                  isInCamera={true}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Hidden Canvas for Capture */}
+          <canvas ref={canvasRef} className="hidden" />
+
+          {/* Shutter Sound */}
+          <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ0MUKzn77BfGgU7ltry0YU2Bx9uyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OUavm8bJiGgU6mNzyz4I9Bx9vyO/mnlINDlGr5vGyYhoFOpjc8s+CPQcfb8jv5p5SDQ5Rq+bxsmIaBTqY3PLPgj0HH2/I7+aeUg0OU=" />
+        </>
+      ) : (
+        <TetrisGame />
+      )}
     </div>
   );
 }
