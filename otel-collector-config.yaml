@@ -1,0 +1,123 @@
+# OpenTelemetry Collector 配置
+# 负责接收、处理和导出遥测数据到 Elasticsearch
+# 同时配置 Prometheus 导出用于报警
+
+receivers:
+  # OTLP 接收器 - 接收前端发送的遥测数据
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "*"
+          allowed_headers:
+            - "*"
+
+processors:
+  # 批处理器 - 优化数据发送
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # 内存限制器 - 防止 OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # 属性处理器 - 添加额外属性用于报警
+  attributes:
+    actions:
+      - key: alert.enabled
+        value: true
+        action: upsert
+
+connectors:
+  # Span 转 Metrics 连接器 - 从 traces 生成 metrics 用于报警
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
+    dimensions:
+      - name: http.method
+      - name: http.status_code
+      - name: service.name
+    exemplars:
+      enabled: true
+    metrics_flush_interval: 15s
+
+exporters:
+  # Elasticsearch 导出器 - 存储 traces 数据
+  elasticsearch:
+    endpoints:
+      - ${ELASTICSEARCH_URL:http://localhost:9200}
+    traces_index: otel-traces
+    logs_index: otel-logs
+    user: ${ELASTICSEARCH_USER:}
+    password: ${ELASTICSEARCH_PASSWORD:}
+    tls:
+      insecure: true
+    retry:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Prometheus 导出器 - 用于报警
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: otel
+    const_labels:
+      app: retro-camera
+
+  # 日志导出器 - 调试用
+  logging:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+extensions:
+  # 健康检查
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # pprof 性能分析
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # zpages 调试页面
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+
+  pipelines:
+    # Traces 管道 - 发送到 ES 和 spanmetrics
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes]
+      exporters: [elasticsearch, spanmetrics, logging]
+
+    # Metrics 管道 - 从 spanmetrics 读取，发送到 Prometheus
+    metrics:
+      receivers: [spanmetrics]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+
+    # Logs 管道
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [elasticsearch, logging]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888

@@ -1,0 +1,110 @@
+# Prometheus 报警规则配置
+# 基于 OpenTelemetry Collector 导出的 metrics 进行报警
+
+groups:
+  - name: otel-web-app-alerts
+    rules:
+      # 高错误率报警
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(otel_span_status_code{status_code="ERROR"}[5m]))
+          / sum(rate(otel_span_status_code[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: frontend
+        annotations:
+          summary: "高错误率报警"
+          description: "服务 {{ $labels.service_name }} 错误率超过 5%，当前值: {{ $value | humanizePercentage }}"
+
+      # API 响应时间过长
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(otel_span_duration_milliseconds_bucket{span_kind="CLIENT"}[5m])) by (le, service_name)
+          ) > 2000
+        for: 3m
+        labels:
+          severity: warning
+          team: frontend
+        annotations:
+          summary: "API 响应时间过长"
+          description: "服务 {{ $labels.service_name }} P95 延迟超过 2s，当前值: {{ $value }}ms"
+
+      # AI 服务调用失败
+      - alert: AIServiceFailure
+        expr: |
+          sum(rate(otel_span_status_code{span_name=~"ai.*", status_code="ERROR"}[5m]))
+          / sum(rate(otel_span_status_code{span_name=~"ai.*"}[5m])) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+          team: ai-platform
+        annotations:
+          summary: "AI 服务调用失败率过高"
+          description: "AI 服务失败率超过 10%，当前值: {{ $value | humanizePercentage }}"
+
+      # 请求量异常
+      - alert: RequestVolumeAnomaly
+        expr: |
+          abs(sum(rate(otel_span_duration_milliseconds_count[5m]))
+          - sum(rate(otel_span_duration_milliseconds_count[5m] offset 1h)))
+          / sum(rate(otel_span_duration_milliseconds_count[5m] offset 1h)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: frontend
+        annotations:
+          summary: "请求量异常波动"
+          description: "请求量相比1小时前变化超过 50%"
+
+      # 页面加载时间过长
+      - alert: SlowPageLoad
+        expr: |
+          histogram_quantile(0.90,
+            sum(rate(otel_span_duration_milliseconds_bucket{span_name="documentLoad"}[5m])) by (le)
+          ) > 3000
+        for: 5m
+        labels:
+          severity: warning
+          team: frontend
+        annotations:
+          summary: "页面加载时间过长"
+          description: "P90 页面加载时间超过 3s，当前值: {{ $value }}ms"
+
+  - name: otel-infrastructure-alerts
+    rules:
+      # Collector 健康检查
+      - alert: OtelCollectorDown
+        expr: up{job="otel-collector"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "OpenTelemetry Collector 不可用"
+          description: "Collector 实例 {{ $labels.instance }} 已停止"
+
+      # 导出失败
+      - alert: OtelExportFailure
+        expr: |
+          rate(otelcol_exporter_send_failed_spans_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "遥测数据导出失败"
+          description: "Exporter {{ $labels.exporter }} 导出失败，失败率: {{ $value }}/s"
+
+      # 队列积压
+      - alert: OtelQueueBacklog
+        expr: |
+          otelcol_processor_batch_batch_send_size > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "遥测数据队列积压"
+          description: "批处理队列大小: {{ $value }}"

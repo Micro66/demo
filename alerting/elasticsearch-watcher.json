@@ -1,0 +1,262 @@
+{
+  "description": "基于 Elasticsearch 的 OpenTelemetry 数据报警配置",
+  "watchers": [
+    {
+      "name": "high_error_rate_watcher",
+      "description": "高错误率报警 - 当5分钟内错误率超过5%时触发",
+      "trigger": {
+        "schedule": {
+          "interval": "1m"
+        }
+      },
+      "input": {
+        "search": {
+          "request": {
+            "indices": ["otel-traces-*"],
+            "body": {
+              "size": 0,
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "range": {
+                        "@timestamp": {
+                          "gte": "now-5m"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "aggs": {
+                "by_status": {
+                  "terms": {
+                    "field": "status.code"
+                  }
+                },
+                "total_spans": {
+                  "value_count": {
+                    "field": "traceId"
+                  }
+                },
+                "error_spans": {
+                  "filter": {
+                    "term": {
+                      "status.code": "ERROR"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "condition": {
+        "script": {
+          "source": "return ctx.payload.aggregations.error_spans.doc_count > 0 && (ctx.payload.aggregations.error_spans.doc_count / ctx.payload.aggregations.total_spans.value) > 0.05"
+        }
+      },
+      "actions": {
+        "send_slack": {
+          "webhook": {
+            "scheme": "https",
+            "host": "hooks.slack.com",
+            "port": 443,
+            "method": "POST",
+            "path": "/services/${SLACK_WEBHOOK_PATH}",
+            "body": "{{#toJson}}{'text': '🚨 高错误率报警: 过去5分钟错误率为 {{ctx.payload.aggregations.error_spans.doc_count}}/{{ctx.payload.aggregations.total_spans.value}}'}{{/toJson}}"
+          }
+        },
+        "send_email": {
+          "email": {
+            "to": "oncall@example.com",
+            "subject": "[ALERT] 高错误率报警",
+            "body": {
+              "text": "过去5分钟内检测到高错误率。\n错误数: {{ctx.payload.aggregations.error_spans.doc_count}}\n总请求数: {{ctx.payload.aggregations.total_spans.value}}"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "slow_api_response_watcher",
+      "description": "API响应时间过长报警",
+      "trigger": {
+        "schedule": {
+          "interval": "2m"
+        }
+      },
+      "input": {
+        "search": {
+          "request": {
+            "indices": ["otel-traces-*"],
+            "body": {
+              "size": 0,
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "range": {
+                        "@timestamp": {
+                          "gte": "now-5m"
+                        }
+                      }
+                    },
+                    {
+                      "term": {
+                        "kind": "CLIENT"
+                      }
+                    }
+                  ]
+                }
+              },
+              "aggs": {
+                "avg_duration": {
+                  "avg": {
+                    "field": "duration"
+                  }
+                },
+                "p95_duration": {
+                  "percentiles": {
+                    "field": "duration",
+                    "percents": [95]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "condition": {
+        "script": {
+          "source": "return ctx.payload.aggregations.p95_duration.values['95.0'] > 2000000000"
+        }
+      },
+      "actions": {
+        "send_slack": {
+          "webhook": {
+            "scheme": "https",
+            "host": "hooks.slack.com",
+            "port": 443,
+            "method": "POST",
+            "path": "/services/${SLACK_WEBHOOK_PATH}",
+            "body": "{{#toJson}}{'text': '⚠️ API响应时间过长: P95延迟超过2秒'}{{/toJson}}"
+          }
+        }
+      }
+    },
+    {
+      "name": "ai_service_failure_watcher",
+      "description": "AI服务调用失败报警",
+      "trigger": {
+        "schedule": {
+          "interval": "1m"
+        }
+      },
+      "input": {
+        "search": {
+          "request": {
+            "indices": ["otel-traces-*"],
+            "body": {
+              "size": 0,
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "range": {
+                        "@timestamp": {
+                          "gte": "now-5m"
+                        }
+                      }
+                    },
+                    {
+                      "wildcard": {
+                        "name": "ai.*"
+                      }
+                    }
+                  ]
+                }
+              },
+              "aggs": {
+                "total_ai_calls": {
+                  "value_count": {
+                    "field": "traceId"
+                  }
+                },
+                "failed_ai_calls": {
+                  "filter": {
+                    "term": {
+                      "status.code": "ERROR"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "condition": {
+        "script": {
+          "source": "return ctx.payload.aggregations.total_ai_calls.value > 0 && (ctx.payload.aggregations.failed_ai_calls.doc_count / ctx.payload.aggregations.total_ai_calls.value) > 0.1"
+        }
+      },
+      "actions": {
+        "send_slack": {
+          "webhook": {
+            "scheme": "https",
+            "host": "hooks.slack.com",
+            "port": 443,
+            "method": "POST",
+            "path": "/services/${SLACK_WEBHOOK_PATH}",
+            "body": "{{#toJson}}{'text': '🚨 AI服务调用失败率过高: 失败率超过10%，请检查Gemini API状态'}{{/toJson}}"
+          }
+        }
+      }
+    },
+    {
+      "name": "no_data_watcher",
+      "description": "无数据报警 - 当10分钟内没有收到任何trace数据时触发",
+      "trigger": {
+        "schedule": {
+          "interval": "5m"
+        }
+      },
+      "input": {
+        "search": {
+          "request": {
+            "indices": ["otel-traces-*"],
+            "body": {
+              "size": 0,
+              "query": {
+                "range": {
+                  "@timestamp": {
+                    "gte": "now-10m"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "condition": {
+        "compare": {
+          "ctx.payload.hits.total.value": {
+            "eq": 0
+          }
+        }
+      },
+      "actions": {
+        "send_slack": {
+          "webhook": {
+            "scheme": "https",
+            "host": "hooks.slack.com",
+            "port": 443,
+            "method": "POST",
+            "path": "/services/${SLACK_WEBHOOK_PATH}",
+            "body": "{{#toJson}}{'text': '⚠️ 无数据报警: 过去10分钟未收到任何遥测数据，请检查OpenTelemetry Collector状态'}{{/toJson}}"
+          }
+        }
+      }
+    }
+  ]
+}
