@@ -1,0 +1,1 @@
+export { generateImageCaption } from './geminiService';
