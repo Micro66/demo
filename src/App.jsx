@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { Download, Trash2, Edit2, RefreshCw, Camera } from 'lucide-react';
+import { Download, Trash2, Edit2, RefreshCw, Camera, Sun, Moon } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 const GEMINI_API_KEY = 'AIzaSyDxhfiN0Ftu_CqRtk4b5uhdBGQRK8AZzWY';
@@ -9,9 +9,29 @@ function App() {
   const [photos, setPhotos] = useState([]);
   const [stream, setStream] = useState(null);
   const [isEjecting, setIsEjecting] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const audioRef = useRef(null);
+
+  useEffect(() => {
+    // Check system preference on mount
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setIsDarkMode(prefersDark);
+  }, []);
+
+  useEffect(() => {
+    // Apply theme class to document
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    setIsDarkMode(prev => !prev);
+  };
 
   useEffect(() => {
     // Request webcam access
@@ -160,16 +180,45 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-pink-50 font-handwritten overflow-hidden">
+    <div className={`min-h-screen font-handwritten overflow-hidden transition-colors duration-500 ${
+      isDarkMode
+        ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900'
+        : 'bg-gradient-to-br from-amber-50 via-orange-50 to-pink-50'
+    }`}>
       {/* Title */}
       <div className="fixed top-4 md:top-8 left-0 right-0 text-center z-10 px-4">
-        <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-amber-900">Bao Retro Camera</h1>
+        <h1 className={`text-3xl sm:text-4xl md:text-6xl font-bold transition-colors duration-500 ${
+          isDarkMode ? 'text-amber-100' : 'text-amber-900'
+        }`}>Bao Retro Camera</h1>
       </div>
 
+      {/* Theme Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        className={`fixed top-4 md:top-8 left-4 md:left-8 z-20 p-3 rounded-full shadow-lg transition-all duration-300 ${
+          isDarkMode
+            ? 'bg-slate-800 hover:bg-slate-700 text-amber-300'
+            : 'bg-white/80 hover:bg-white text-amber-700'
+        }`}
+        aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        <motion.div
+          initial={false}
+          animate={{ rotate: isDarkMode ? 180 : 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {isDarkMode ? <Moon size={24} /> : <Sun size={24} />}
+        </motion.div>
+      </button>
+
       {/* Instructions */}
-      <div className="hidden md:block fixed bottom-8 right-8 bg-white/80 backdrop-blur-sm p-4 rounded-lg shadow-lg max-w-xs z-10">
-        <h3 className="text-2xl font-bold text-amber-900 mb-2">How to Use</h3>
-        <ul className="text-lg text-amber-800 space-y-1">
+      <div className={`hidden md:block fixed bottom-8 right-8 backdrop-blur-sm p-4 rounded-lg shadow-lg max-w-xs z-10 transition-colors duration-500 ${
+        isDarkMode
+          ? 'bg-slate-800/80 text-amber-100'
+          : 'bg-white/80 text-amber-900'
+      }`}>
+        <h3 className="text-2xl font-bold mb-2">How to Use</h3>
+        <ul className={`text-lg space-y-1 ${isDarkMode ? 'text-amber-200' : 'text-amber-800'}`}>
           <li>• Click the button to take a photo</li>
           <li>• Drag photos to the wall</li>
           <li>• Double-click text to edit</li>
@@ -196,6 +245,7 @@ function App() {
           deletePhoto={deletePhoto}
           downloadPhoto={downloadPhoto}
           generateCaption={generateCaption}
+          isDarkMode={isDarkMode}
         />
       ))}
 
@@ -276,6 +326,7 @@ function App() {
               downloadPhoto={downloadPhoto}
               generateCaption={generateCaption}
               isInCamera={true}
+              isDarkMode={isDarkMode}
             />
           </motion.div>
         ))}
@@ -290,7 +341,7 @@ function App() {
   );
 }
 
-function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateCaption, isInCamera = false }) {
+function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateCaption, isInCamera = false, isDarkMode = false }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isTextHovered, setIsTextHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -379,7 +430,9 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
       onTouchEnd={() => setTimeout(() => setIsTouching(false), 200)}
     >
       {/* Polaroid Card */}
-      <div className="bg-white p-3 md:p-4 shadow-2xl" style={{ aspectRatio: '3/4' }}>
+      <div className={`p-3 md:p-4 shadow-2xl transition-colors duration-500 ${
+        isDarkMode ? 'bg-slate-800' : 'bg-white'
+      }`} style={{ aspectRatio: '3/4' }}>
         {/* Photo Area */}
         <div
           className="relative bg-gray-200 mb-3 overflow-hidden"
@@ -401,7 +454,9 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
 
         {/* Text Area */}
         <div className="space-y-1 md:space-y-2">
-          <div className="text-base md:text-xl text-gray-700 font-bold">{photo.date}</div>
+          <div className={`text-base md:text-xl font-bold transition-colors duration-500 ${
+            isDarkMode ? 'text-amber-200' : 'text-gray-700'
+          }`}>{photo.date}</div>
 
           <div
             className="relative"
@@ -416,13 +471,21 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
                 onChange={(e) => setEditText(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onBlur={handleSave}
-                className="w-full text-base md:text-xl text-gray-800 bg-gray-50 border-2 border-amber-300 rounded p-2 font-handwritten resize-none"
+                className={`w-full text-base md:text-xl border-2 rounded p-2 font-handwritten resize-none transition-colors duration-500 ${
+                  isDarkMode
+                    ? 'text-amber-100 bg-slate-700 border-amber-500'
+                    : 'text-gray-800 bg-gray-50 border-amber-300'
+                }`}
                 rows={3}
               />
             ) : (
-              <div className="text-base md:text-xl text-gray-800 min-h-[50px] md:min-h-[60px]">
+              <div className={`text-base md:text-xl min-h-[50px] md:min-h-[60px] transition-colors duration-500 ${
+                isDarkMode ? 'text-amber-100' : 'text-gray-800'
+              }`}>
                 {photo.isGenerating ? (
-                  <span className="italic text-gray-500">Generating caption...</span>
+                  <span className={isDarkMode ? 'italic text-amber-400' : 'italic text-gray-500'}>
+                    Generating caption...
+                  </span>
                 ) : (
                   photo.caption
                 )}
@@ -431,20 +494,22 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
 
             {/* Edit Icons */}
             {(isTextHovered || isTouching) && !isEditing && !photo.isGenerating && (
-              <div className="absolute top-0 right-0 flex gap-2 bg-white/90 p-1 rounded shadow-lg">
+              <div className={`absolute top-0 right-0 flex gap-2 p-1 rounded shadow-lg transition-colors duration-500 ${
+                isDarkMode ? 'bg-slate-700/90' : 'bg-white/90'
+              }`}>
                 <button
                   onClick={handleEdit}
                   className="p-1 hover:bg-amber-100 rounded active:bg-amber-200"
                   aria-label="Edit caption"
                 >
-                  <Edit2 size={16} className="text-amber-700 md:w-[18px] md:h-[18px]" />
+                  <Edit2 size={16} className={`md:w-[18px] md:h-[18px] ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`} />
                 </button>
                 <button
                   onClick={handleRefresh}
                   className="p-1 hover:bg-amber-100 rounded active:bg-amber-200"
                   aria-label="Regenerate caption"
                 >
-                  <RefreshCw size={16} className="text-amber-700 md:w-[18px] md:h-[18px]" />
+                  <RefreshCw size={16} className={`md:w-[18px] md:h-[18px] ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`} />
                 </button>
               </div>
             )}
@@ -454,13 +519,19 @@ function PolaroidPhoto({ photo, setPhotos, deletePhoto, downloadPhoto, generateC
 
       {/* Hover Toolbar */}
       {(isHovered || isTouching) && !photo.isDeveloping && photo.onWall && (
-        <div className="absolute -top-10 md:-top-12 left-1/2 -translate-x-1/2 flex gap-2 bg-white/95 p-1.5 md:p-2 rounded-lg shadow-lg">
+        <div className={`absolute -top-10 md:-top-12 left-1/2 -translate-x-1/2 flex gap-2 p-1.5 md:p-2 rounded-lg shadow-lg transition-colors duration-500 ${
+          isDarkMode ? 'bg-slate-700/95' : 'bg-white/95'
+        }`}>
           <button
             onClick={() => downloadPhoto(photo.id)}
-            className="p-1.5 md:p-2 hover:bg-amber-100 active:bg-amber-200 rounded transition-colors"
+            className={`p-1.5 md:p-2 rounded transition-colors ${
+              isDarkMode
+                ? 'hover:bg-slate-600 active:bg-slate-500'
+                : 'hover:bg-amber-100 active:bg-amber-200'
+            }`}
             aria-label="Download photo"
           >
-            <Download size={18} className="text-amber-700 md:w-5 md:h-5" />
+            <Download size={18} className={`md:w-5 md:h-5 ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`} />
           </button>
           <button
             onClick={() => deletePhoto(photo.id)}
